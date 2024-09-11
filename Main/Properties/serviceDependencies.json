@@ -1,8 +1,13 @@
 {
   "dependencies": {
+    "secrets1": {
+      "type": "secrets",
+      "connectionId": "HomeSchoolContainerApp1SqlDatabaseConnectionString"
+    },
     "mssql1": {
       "type": "mssql",
-      "connectionId": "ConnectionStrings:IdentityContextConnection"
+      "connectionId": "ConnectionStrings:IdentityContextConnection",
+      "dynamicId": null
     }
   }
 }

@@ -3,8 +3,12 @@ using Microsoft.Extensions.DependencyInjection;
 using Main.Data;
 using Microsoft.AspNetCore.Identity;
 using Main.Areas.Identity.Data;
+using Azure.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
+
+var keyVaultEndpoint = new Uri(Environment.GetEnvironmentVariable("HomeSchoolContainerApp1SqlDatabaseConnectionString"));
+builder.Configuration.AddAzureKeyVault(keyVaultEndpoint, new VisualStudioCredential());
 var connectionString = builder.Configuration.GetConnectionString("IdentityContextConnection") ?? throw new InvalidOperationException("Connection string 'IdentityContextConnection' not found.");
 
 builder.Services.AddDbContext<IdentityContext>(options => options.UseSqlServer(connectionString));
