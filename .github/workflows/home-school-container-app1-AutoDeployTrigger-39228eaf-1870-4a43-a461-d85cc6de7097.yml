@@ -1,0 +1,48 @@
+name: Trigger auto deployment for home-school-container-app1
+
+# When this action will be executed
+on:
+  # Automatically trigger it when detected changes in repo
+  push:
+    branches: 
+      [ master ]
+    paths:
+    - '**'
+    - '.github/workflows/home-school-container-app1-AutoDeployTrigger-39228eaf-1870-4a43-a461-d85cc6de7097.yml'
+
+  # Allow manual trigger 
+  workflow_dispatch:      
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions: 
+      id-token: write #This is required for requesting the OIDC JWT Token
+      contents: read #Required when GH token is used to authenticate with private repo
+
+    steps:
+      - name: Checkout to the branch
+        uses: actions/checkout@v2
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.HOMESCHOOLCONTAINERAPP1_AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.HOMESCHOOLCONTAINERAPP1_AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.HOMESCHOOLCONTAINERAPP1_AZURE_SUBSCRIPTION_ID }}
+
+      - name: Build and push container image to registry
+        uses: azure/container-apps-deploy-action@v2
+        with:
+          appSourcePath: ${{ github.workspace }}
+          _dockerfilePathKey_: _dockerfilePath_
+          registryUrl: homeschoolcontainerapp1registry.azurecr.io
+          registryUsername: ${{ secrets.HOMESCHOOLCONTAINERAPP1_REGISTRY_USERNAME }}
+          registryPassword: ${{ secrets.HOMESCHOOLCONTAINERAPP1_REGISTRY_PASSWORD }}
+          containerAppName: home-school-container-app1
+          resourceGroup: MyGroup
+          imageToBuild: homeschoolcontainerapp1registry.azurecr.io/home-school-container-app1:${{ github.sha }}
+          _buildArgumentsKey_: |
+            _buildArgumentsValues_
+
+
