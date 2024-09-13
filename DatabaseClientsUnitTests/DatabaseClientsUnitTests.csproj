@@ -36,6 +36,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\DatabaseClients\DatabaseClients.csproj" />
+    <ProjectReference Include="..\Utility\Utility.csproj" />
   </ItemGroup>
 
   <ItemGroup>
