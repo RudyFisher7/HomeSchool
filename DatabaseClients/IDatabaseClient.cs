@@ -1,5 +1,4 @@
 ﻿using Microsoft.Azure.Cosmos;
-using System.Linq.Expressions;
 
 namespace DatabaseClients
 {
@@ -8,15 +7,15 @@ namespace DatabaseClients
         Task<bool> CreateDatabaseIfNotExists(string databaseName);
         Task<bool> DeleteDatabase(string databaseName);
 
-        Task<bool> CreateCollectionIfNotExists(string databaseName, Type modelType);
+        Task<bool> CreateCollectionIfNotExists(string databaseName, Type modelType, string partitionKeyPropertyName);
         Task<bool> DeleteCollection(string databaseName, Type modelType);
 
         //FIXME:: return a custom interface type
-        Task<ItemResponse<T>> InsertSingleItem<T>(string databaseName, T item) where T : class;
-        Task<T?> GetSingleItem<T>(string databaseName, string itemId) where T : class;
+        Task<ItemResponse<T>> CreateSingleItem<T, K>(string databaseName, T item, K partitionKeyValue) where T : class;
+        Task<T?> GetSingleItem<T, K>(string databaseName, string itemId, K partitionKeyValue) where T : class;
         Task<T?> GetSingleItem<T>(string databaseName, Func<T, bool> predicate) where T : class;
-        Task<ItemResponse<T>> UpdateSingleItem<T>(string databaseName, string id, T item) where T : class;
-        Task<ItemResponse<T>> DeleteSingleItem<T>(string databaseName, string id) where T : class;
-        Task<ItemResponse<T>> UpsertSingleItem<T>(string databaseName, T item) where T : class;
+        Task<ItemResponse<T>> UpdateSingleItem<T, K>(string databaseName, string id, T item, K partitionKeyValue) where T : class;
+        Task<ItemResponse<T>> DeleteSingleItem<T, K>(string databaseName, string id, K partitionKeyValue) where T : class;
+        Task<ItemResponse<T>> UpsertSingleItem<T, K>(string databaseName, T item, K partitionKeyValue) where T : class;
     }
 }
