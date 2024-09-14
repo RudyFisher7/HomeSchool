@@ -1,6 +1,8 @@
 using DatabaseClients;
+using DatabaseClients.Attributes;
 using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
+using System.Data.SqlTypes;
 using System.Reflection;
 using Utility.JsonSerialization;
 
@@ -12,9 +14,13 @@ namespace DatabaseClientsUnitTests
         {
             [JsonProperty("id")]
             [System.Text.Json.Serialization.JsonConverter(typeof(JsonStringGuidConverter))]
+            [SqlType(SqlTypeEnum.UNIQUEIDENTIFIER, typeof(SqlGuid))]
             public Guid Id { get; set; } = Guid.NewGuid();
+
+            [SqlType(SqlTypeEnum.NVARCHAR, typeof(SqlString))]
             public string Name { get; set; } = string.Empty;
 
+            [SqlType(SqlTypeEnum.FLOAT, typeof(SqlDouble))]
             public double Value { get; set; }
 
             public override bool Equals(object? other)
@@ -45,7 +51,7 @@ namespace DatabaseClientsUnitTests
 
 
         private readonly IConfigurationRoot _configuration;
-        private readonly IDatabaseClient _databaseClient;
+        private readonly IDataRepository _databaseClient;
         private const string _DATABASE_NAME = "TestDatabase";
         private const string _PARTITION_KEY_VALUE = "Test";
 
@@ -57,7 +63,7 @@ namespace DatabaseClientsUnitTests
                 .AddEnvironmentVariables()
                 .Build();
 
-            _databaseClient = new CosmosNoSqlDatabaseClient(_configuration.GetConnectionString("AzureCosmosDBConnection") ?? throw new ArgumentNullException("AzureCosmosDBConnection"));
+            _databaseClient = new CosmosDataRepository(_configuration.GetConnectionString("AzureCosmosDBConnection") ?? throw new ArgumentNullException("AzureCosmosDBConnection"));
             var wasCreated = _databaseClient.CreateDatabaseIfNotExists(_DATABASE_NAME).Result;
             var wasCreated2 = _databaseClient.CreateCollectionIfNotExists(_DATABASE_NAME, typeof(MyTestModel), nameof(MyTestModel.Name)).Result;
         }
@@ -81,7 +87,7 @@ namespace DatabaseClientsUnitTests
 
             var insertResult = await _databaseClient.CreateSingleItem(_DATABASE_NAME, model, model.Name);
 
-            Assert.Equal(System.Net.HttpStatusCode.Created, insertResult.StatusCode);
+            Assert.True(insertResult.Success);
         }
 
 
@@ -97,9 +103,9 @@ namespace DatabaseClientsUnitTests
 
             var insertResult = await _databaseClient.CreateSingleItem(_DATABASE_NAME, model, model.Name);
 
-            Assert.Equal(System.Net.HttpStatusCode.Created, insertResult.StatusCode);
+            Assert.True(insertResult.Success);
 
-            var getResult = await _databaseClient.GetSingleItem<MyTestModel, string>(_DATABASE_NAME, model.Id.ToString(), model.Name);
+            var getResult = await _databaseClient.ReadSingleItem<MyTestModel, string>(_DATABASE_NAME, model.Id.ToString(), model.Name);
 
             Assert.NotNull(getResult);
             Assert.Equal(model, getResult);
@@ -118,7 +124,7 @@ namespace DatabaseClientsUnitTests
 
             var insertResult = await _databaseClient.CreateSingleItem(_DATABASE_NAME, model, model.Name);
 
-            Assert.Equal(System.Net.HttpStatusCode.Created, insertResult.StatusCode);
+            Assert.True(insertResult.Success);
 
             model.Value = 0.9d;
 
@@ -141,7 +147,7 @@ namespace DatabaseClientsUnitTests
 
             var insertResult = await _databaseClient.CreateSingleItem(_DATABASE_NAME, model, model.Name);
 
-            Assert.Equal(System.Net.HttpStatusCode.Created, insertResult.StatusCode);
+            Assert.True(insertResult.Success);
 
             var deleteResult = await _databaseClient.DeleteSingleItem<MyTestModel, string>(_DATABASE_NAME, model.Id.ToString(), model.Name);
 
@@ -162,7 +168,7 @@ namespace DatabaseClientsUnitTests
 
             var upsertResult = await _databaseClient.CreateSingleItem(_DATABASE_NAME, model, model.Name);
 
-            Assert.Equal(System.Net.HttpStatusCode.Created, upsertResult.StatusCode);
+            Assert.True(upsertResult.Success);
         }
     }
 }

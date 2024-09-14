@@ -16,7 +16,7 @@ builder.Services.AddDefaultIdentity<HomeSchoolUser>(options => options.SignIn.Re
 // Add services to the container.
 builder.Services.AddRazorPages();
 builder.Services.AddControllers();
-builder.Services.AddSingleton(typeof(IDatabaseClient), new CosmosNoSqlDatabaseClient(cosmosConnectionString));
+builder.Services.AddSingleton(typeof(IDataRepository), new CosmosDataRepository(cosmosConnectionString));
 
 var app = builder.Build();
 
