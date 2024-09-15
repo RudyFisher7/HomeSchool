@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel;
 
-namespace DatabaseClients.CrudResponses
+namespace DataRepositories.CrudResponses
 {
     public class DataCrudResponse<T> : SimpleCrudResponse where T : class
     {

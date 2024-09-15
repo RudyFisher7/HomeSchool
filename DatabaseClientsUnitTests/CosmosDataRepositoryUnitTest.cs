@@ -1,14 +1,13 @@
-using DatabaseClients;
-using DatabaseClients.Attributes;
+using DataRepositories;
+using DataRepositories.Attributes;
 using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
 using System.Data.SqlTypes;
-using System.Reflection;
 using Utility.JsonSerialization;
 
-namespace DatabaseClientsUnitTests
+namespace IDataRepositoryUnitTests
 {
-    public class CosmosNoSqlDatabaseClientUnitTest : IDisposable
+    public class CosmosDataRepositoryUnitTest : IDisposable
     {
         private class MyTestModel
         {
@@ -56,7 +55,7 @@ namespace DatabaseClientsUnitTests
         private const string _PARTITION_KEY_VALUE = "Test";
 
 
-        public CosmosNoSqlDatabaseClientUnitTest()
+        public CosmosDataRepositoryUnitTest()
         {
             _configuration = new ConfigurationBuilder()
                 .AddJsonFile("appsettings.json")

@@ -1,7 +1,7 @@
-﻿using DatabaseClients.CrudResponses;
+﻿using DataRepositories.CrudResponses;
 using Microsoft.Azure.Cosmos;
 
-namespace DatabaseClients
+namespace DataRepositories
 {
     public interface IDataRepository
     {

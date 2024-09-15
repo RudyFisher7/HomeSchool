@@ -1,4 +1,4 @@
-﻿namespace DatabaseClients.Attributes
+﻿namespace DataRepositories.Attributes
 {
     [AttributeUsage(AttributeTargets.Property, AllowMultiple = false)]
     public class SqlTypeAttribute : Attribute

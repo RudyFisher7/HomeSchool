@@ -35,7 +35,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\DatabaseClients\DatabaseClients.csproj" />
+    <ProjectReference Include="..\DatabaseClients\DataRepositories.csproj" />
     <ProjectReference Include="..\Utility\Utility.csproj" />
   </ItemGroup>
 

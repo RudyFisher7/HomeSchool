@@ -7,11 +7,11 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Model", "Model\Model.csproj
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Main", "Main\Main.csproj", "{9F793EAA-B631-456B-809C-C363811FB171}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DatabaseClients", "DatabaseClients\DatabaseClients.csproj", "{544A0A3B-CB61-49A4-8246-E6E72633CF71}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DataRepositories", "DatabaseClients\DataRepositories.csproj", "{544A0A3B-CB61-49A4-8246-E6E72633CF71}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DatabaseClientsUnitTests", "DatabaseClientsUnitTests\DatabaseClientsUnitTests.csproj", "{D72B59DA-1017-47F1-A938-C29AFFBFA0AA}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "IDataRepositoryUnitTests", "DatabaseClientsUnitTests\IDataRepositoryUnitTests.csproj", "{D72B59DA-1017-47F1-A938-C29AFFBFA0AA}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Utility", "Utility\Utility.csproj", "{E669E9FC-9084-4F75-A281-5301A09BCD7C}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Utility", "Utility\Utility.csproj", "{E669E9FC-9084-4F75-A281-5301A09BCD7C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

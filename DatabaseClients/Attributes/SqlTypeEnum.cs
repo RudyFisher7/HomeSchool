@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace DatabaseClients.Attributes
+namespace DataRepositories.Attributes
 {
     public enum SqlTypeEnum
     {

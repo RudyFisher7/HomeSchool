@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace DatabaseClients.CrudResponses
+namespace DataRepositories.CrudResponses
 {
     public class SimpleCrudResponse : ICrudResponse
     {

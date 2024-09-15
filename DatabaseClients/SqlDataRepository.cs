@@ -1,14 +1,16 @@
-﻿using DatabaseClients.Attributes;
-using DatabaseClients.CrudResponses;
+﻿using DataRepositories.Attributes;
+using DataRepositories.CrudResponses;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Data.SqlClient;
 using System.Collections.Concurrent;
 using System.Reflection;
 using System.Text;
+using System.Text.RegularExpressions;
 
-namespace DatabaseClients
+namespace DataRepositories
 {
     //FIXME:: use partition keys so this can be like cosmosclient
+    //TODO:: create database if not exists implementation in this class so far only might support sql server
     public class SqlDataRepository : IDataRepository
     {
         private class BuildQueryResult
@@ -22,6 +24,8 @@ namespace DatabaseClients
         private static readonly string _DATABASE_NAME_PARAMETER = "@DatabaseName";
         private static readonly string _COLLECTION_NAME_PARAMETER = "@CollectionName";
         private static readonly string _COLLECTION_NAME_FORMAT_STRING = "{0}s";
+        private static readonly string _VALID_DATABASE_OR_TABLE_NAME_REGEX = @"^[a-zA-Z0-9]+";
+        private static readonly string _FORBIDDEN_DDL_MESSAGE_FORMAT_STRING = $"'{0}' contians forbidden characters. Only letters and numbers allowed.";
 
 
         private static readonly ConcurrentDictionary<Type, PropertyInfo[]> _propertyCache = new ConcurrentDictionary<Type, PropertyInfo[]>();
@@ -36,22 +40,46 @@ namespace DatabaseClients
         }
         
 
+        /// <inheritdoc/>
+        /// <remarks>
+        /// WARNING! Parameters are only supported for DML operations, not DDL
+        /// operations, so this function is succeptable to SQL injection for
+        /// the database name.
+        /// </remarks>
         public async Task<SimpleCrudResponse> CreateDatabaseIfNotExists(string databaseName)
         {
-            var command = new SqlCommand($"CREATE DATABASE IF NOT EXISTS {_DATABASE_NAME_PARAMETER}");
-            command.Parameters.AddWithValue(_DATABASE_NAME_PARAMETER, databaseName);
+            var result = new SimpleCrudResponse();
 
-            var result = await ExecuteNonQuery(command);
+            if (IsDdlNameAllowed(databaseName))
+            {
+                var command = new SqlCommand($"IF NOT EXISTS(SELECT name FROM sys.databases WHERE name = {_DATABASE_NAME_PARAMETER}) BEGIN CREATE DATABASE {databaseName} END");
+                command.Parameters.AddWithValue(_DATABASE_NAME_PARAMETER, databaseName);
+
+                result = await ExecuteNonQuery(command);
+            }
+            else
+            {
+                result.Message = string.Format(_FORBIDDEN_DDL_MESSAGE_FORMAT_STRING, databaseName);
+            }
 
             return result;
         }
 
         public async Task<SimpleCrudResponse> DeleteDatabase(string databaseName)
         {
-            var command = new SqlCommand($"DROP DATABASE IF EXISTS {_DATABASE_NAME_PARAMETER}");
-            command.Parameters.AddWithValue(_DATABASE_NAME_PARAMETER, databaseName);
+            var result = new SimpleCrudResponse();
 
-            var result = await ExecuteNonQuery(command);
+            if (IsDdlNameAllowed(databaseName))
+            {
+                var command = new SqlCommand($"DROP DATABASE IF EXISTS {databaseName}");
+                command.Parameters.AddWithValue(_DATABASE_NAME_PARAMETER, databaseName);
+
+                result = await ExecuteNonQuery(command);
+            }
+            else
+            {
+                result.Message = string.Format(_FORBIDDEN_DDL_MESSAGE_FORMAT_STRING, databaseName);
+            }
 
             return result;
         }
@@ -61,20 +89,27 @@ namespace DatabaseClients
         {
             var result = new SimpleCrudResponse();
 
-            var queryResult = BuildCreateCollectionQuery(modelType);
-
-            if (queryResult.Success)
+            if (IsDdlNameAllowed(databaseName))
             {
-                var command = new SqlCommand(queryResult.Query);
-                command.Parameters.AddWithValue(_DATABASE_NAME_PARAMETER, databaseName);
-                command.Parameters.AddWithValue(_COLLECTION_NAME_PARAMETER, BuildCollectionName(modelType));
+                var queryResult = BuildCreateCollectionQuery(databaseName, modelType);
 
-                result = await ExecuteNonQuery(command);
+                if (queryResult.Success)
+                {
+                    var command = new SqlCommand(queryResult.Query);
+                    command.Parameters.AddWithValue(_DATABASE_NAME_PARAMETER, databaseName);
+                    command.Parameters.AddWithValue(_COLLECTION_NAME_PARAMETER, BuildCollectionName(modelType));
+
+                    result = await ExecuteNonQuery(command);
+                }
+                else
+                {
+                    result.Success = false;
+                    result.Message = queryResult.Message;
+                }
             }
             else
             {
-                result.Success = false;
-                result.Message = queryResult.Message;
+                result.Message = string.Format(_FORBIDDEN_DDL_MESSAGE_FORMAT_STRING, databaseName);
             }
 
             return result;
@@ -83,11 +118,20 @@ namespace DatabaseClients
 
         public async Task<SimpleCrudResponse> DeleteCollection(string databaseName, Type modelType)
         {
-            var command = new SqlCommand($"USE {_DATABASE_NAME_PARAMETER}; DROP TABLE IF EXISTS dbo.{_COLLECTION_NAME_PARAMETER}");
-            command.Parameters.AddWithValue(_DATABASE_NAME_PARAMETER, databaseName);
-            command.Parameters.AddWithValue(_COLLECTION_NAME_PARAMETER, BuildCollectionName(modelType));
+            var result = new SimpleCrudResponse();
 
-            var result = await ExecuteNonQuery(command);
+            if (IsDdlNameAllowed(databaseName))
+            {
+                var command = new SqlCommand($"USE {databaseName}; DROP TABLE IF EXISTS dbo.{modelType.Name}s");
+                command.Parameters.AddWithValue(_DATABASE_NAME_PARAMETER, databaseName);
+                command.Parameters.AddWithValue(_COLLECTION_NAME_PARAMETER, BuildCollectionName(modelType));
+
+                result = await ExecuteNonQuery(command);
+            }
+            else
+            {
+                result.Message = string.Format(_FORBIDDEN_DDL_MESSAGE_FORMAT_STRING, databaseName);
+            }
 
             return result;
         }
@@ -97,7 +141,7 @@ namespace DatabaseClients
         {
             var result = new DataCrudResponse<T>();
 
-            var queryResult = BuildCreateSingleItemQuery(typeof(T));
+            var queryResult = BuildCreateSingleItemQuery(databaseName, typeof(T));
 
             if (queryResult.Success)
             {
@@ -154,6 +198,9 @@ namespace DatabaseClients
             {
                 try
                 {
+                    command.Connection = connection;
+                    await command.Connection.OpenAsync();
+
                     result.DocumentsAffected = await command.ExecuteNonQueryAsync();
                     result.Success = true;
                 }
@@ -168,20 +215,28 @@ namespace DatabaseClients
         }
 
 
+        private bool IsDdlNameAllowed(string name)
+        {
+            bool result = Regex.IsMatch(name, _VALID_DATABASE_OR_TABLE_NAME_REGEX);
+
+            return result;
+        }
+
+
         private static string BuildCollectionName(Type modelType)
         {
             return string.Format(_COLLECTION_NAME_FORMAT_STRING, modelType.Name);
         }
 
 
-        private static BuildQueryResult BuildCreateSingleItemQuery(Type modelType)
+        private static BuildQueryResult BuildCreateSingleItemQuery(string databaseName, Type modelType)
         {
             var result = new BuildQueryResult();
 
             PropertyInfo[] properties = _propertyCache.GetOrAdd(modelType, t => t.GetProperties());
 
             var query = new StringBuilder();
-            query.Append($"USE {_DATABASE_NAME_PARAMETER}; INSERT INTO dbo.{_COLLECTION_NAME_PARAMETER} (");
+            query.Append($"USE {databaseName}; INSERT INTO dbo.{modelType}s (");
 
             var propertyName = string.Empty;
             var propertyType = string.Empty;
@@ -248,14 +303,14 @@ namespace DatabaseClients
         }
 
 
-        private static BuildQueryResult BuildCreateCollectionQuery(Type modelType)
+        private static BuildQueryResult BuildCreateCollectionQuery(string databaseName, Type modelType)
         {
             var result = new BuildQueryResult();
 
             PropertyInfo[] properties = _propertyCache.GetOrAdd(modelType, t => t.GetProperties());
 
             var query = new StringBuilder();
-            query.Append($"USE {_DATABASE_NAME_PARAMETER}; CREATE TABLE IF NOT EXISTS dbo.{_COLLECTION_NAME_PARAMETER} (");
+            query.Append($"USE {databaseName}; CREATE TABLE IF NOT EXISTS dbo.{modelType}s (");
 
             var propertyName = string.Empty;
             var propertyType = string.Empty;

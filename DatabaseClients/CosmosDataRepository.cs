@@ -1,6 +1,6 @@
-﻿namespace DatabaseClients
+﻿namespace DataRepositories
 {
-    using DatabaseClients.CrudResponses;
+    using DataRepositories.CrudResponses;
     using Microsoft.Azure.Cosmos;
     using System.Threading.Tasks;
 
