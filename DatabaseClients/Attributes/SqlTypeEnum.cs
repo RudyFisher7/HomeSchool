@@ -8,7 +8,8 @@ namespace DataRepositories.Attributes
 {
     public enum SqlTypeEnum
     {
-        BIGINT,
+        MIN = 0,
+        BIGINT = MIN,
         BINARY,
         BIT,
         CHAR,
@@ -40,6 +41,7 @@ namespace DataRepositories.Attributes
         UNIQUEIDENTIFIER,
         VARBINARY,
         VARCHAR,
-        XML
+        XML,
+        SIZE,
     }
 }

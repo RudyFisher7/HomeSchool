@@ -32,7 +32,7 @@
         }
 
 
-        public async Task<SimpleCrudResponse> DeleteDatabase(string databaseName)
+        public async Task<SimpleCrudResponse> DeleteDatabaseIfExists(string databaseName)
         {
             var result = new SimpleCrudResponse();
 
@@ -66,7 +66,7 @@
         }
 
 
-        public async Task<SimpleCrudResponse> DeleteCollection(string databaseName, Type modelType)
+        public async Task<SimpleCrudResponse> DeleteCollectionIfExists(string databaseName, Type modelType)
         {
             var result = new SimpleCrudResponse();
 

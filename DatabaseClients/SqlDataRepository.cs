@@ -65,7 +65,7 @@ namespace DataRepositories
             return result;
         }
 
-        public async Task<SimpleCrudResponse> DeleteDatabase(string databaseName)
+        public async Task<SimpleCrudResponse> DeleteDatabaseIfExists(string databaseName)
         {
             var result = new SimpleCrudResponse();
 
@@ -116,7 +116,7 @@ namespace DataRepositories
         }
 
 
-        public async Task<SimpleCrudResponse> DeleteCollection(string databaseName, Type modelType)
+        public async Task<SimpleCrudResponse> DeleteCollectionIfExists(string databaseName, Type modelType)
         {
             var result = new SimpleCrudResponse();
 
@@ -236,7 +236,7 @@ namespace DataRepositories
             PropertyInfo[] properties = _propertyCache.GetOrAdd(modelType, t => t.GetProperties());
 
             var query = new StringBuilder();
-            query.Append($"USE {databaseName}; INSERT INTO dbo.{modelType}s (");
+            query.Append($"USE {databaseName}; INSERT INTO dbo.{BuildCollectionName(modelType)} (");
 
             var propertyName = string.Empty;
             var propertyType = string.Empty;
@@ -310,7 +310,7 @@ namespace DataRepositories
             PropertyInfo[] properties = _propertyCache.GetOrAdd(modelType, t => t.GetProperties());
 
             var query = new StringBuilder();
-            query.Append($"USE {databaseName}; CREATE TABLE IF NOT EXISTS dbo.{modelType}s (");
+            query.Append($"USE {databaseName}; IF NOT EXISTS (SELECT name FROM sys.tables WHERE name = {_COLLECTION_NAME_PARAMETER}) BEGIN CREATE TABLE dbo.{BuildCollectionName(modelType)} (");
 
             var propertyName = string.Empty;
             var propertyType = string.Empty;
@@ -324,11 +324,11 @@ namespace DataRepositories
                     var attribute = property.GetCustomAttribute<SqlTypeAttribute>();
                     propertyType = attribute!.SqlTypeString;
 
-                    query.Append($"{propertyName} {propertyType}, ");
+                    query.Append($"{propertyName} {propertyType} {attribute.SqlConstraintString}, ");
                 }
 
                 query.Length -= 2;
-                query.Append(")");
+                query.Append(") END");
 
                 result.Success = true;
                 result.Query = query.ToString();

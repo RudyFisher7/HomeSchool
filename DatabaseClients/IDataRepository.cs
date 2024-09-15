@@ -6,10 +6,10 @@ namespace DataRepositories
     public interface IDataRepository
     {
         Task<SimpleCrudResponse> CreateDatabaseIfNotExists(string databaseName);
-        Task<SimpleCrudResponse> DeleteDatabase(string databaseName);
+        Task<SimpleCrudResponse> DeleteDatabaseIfExists(string databaseName);
 
         Task<SimpleCrudResponse> CreateCollectionIfNotExists(string databaseName, Type modelType, string partitionKeyPropertyName);
-        Task<SimpleCrudResponse> DeleteCollection(string databaseName, Type modelType);
+        Task<SimpleCrudResponse> DeleteCollectionIfExists(string databaseName, Type modelType);
 
         //FIXME:: return a custom interface type
         Task<DataCrudResponse<T>> CreateSingleItem<T, K>(string databaseName, T item, K partitionKeyValue) where T : class;

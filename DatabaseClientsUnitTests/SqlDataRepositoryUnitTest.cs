@@ -13,13 +13,13 @@ namespace IDataRepositoryUnitTests
         {
             [JsonProperty("id")]
             [System.Text.Json.Serialization.JsonConverter(typeof(JsonStringGuidConverter))]
-            [SqlType(SqlTypeEnum.UNIQUEIDENTIFIER, typeof(SqlGuid))]
+            [SqlType(typeof(SqlGuid), SqlTypeEnum.UNIQUEIDENTIFIER, SqlConstraintEnum.PRIMARY_KEY)]
             public Guid Id { get; set; } = Guid.NewGuid();
 
-            [SqlType(SqlTypeEnum.NVARCHAR, typeof(SqlString))]
+            [SqlType(typeof(SqlString), SqlTypeEnum.NVARCHAR)]
             public string Name { get; set; } = string.Empty;
 
-            [SqlType(SqlTypeEnum.FLOAT, typeof(SqlDouble))]
+            [SqlType(typeof(SqlDouble), SqlTypeEnum.FLOAT)]
             public double Value { get; set; }
 
             public override bool Equals(object? other)
@@ -70,7 +70,7 @@ namespace IDataRepositoryUnitTests
 
         public void Dispose()
         {
-            _databaseClient.DeleteDatabase(_DATABASE_NAME);
+            _databaseClient.DeleteDatabaseIfExists(_DATABASE_NAME);
         }
 
 
