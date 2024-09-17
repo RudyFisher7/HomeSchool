@@ -2,6 +2,7 @@
 {
     using DataRepositories.CrudResponses;
     using Microsoft.Azure.Cosmos;
+    using System.Linq.Expressions;
     using System.Threading.Tasks;
 
 
@@ -114,7 +115,7 @@
         }
 
 
-        public async Task<T?> ReadSingleItem<T>(string databaseName, Func<T, bool> predicate) where T : class, new()
+        public async Task<T?> ReadSingleItem<T>(string databaseName, Expression<Func<T, bool>> predicate) where T : class, new()
         {
             string collectionName = BuildCollectionName(typeof(T));
 

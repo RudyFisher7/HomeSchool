@@ -3,6 +3,7 @@ using DataRepositories.CrudResponses;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Data.SqlClient;
 using System.Collections.Concurrent;
+using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -196,20 +197,43 @@ namespace DataRepositories
         }
 
 
-        public Task<SingleItemCrudResponse<T>> ReadSingleItem<T>(string databaseName, Func<T, bool> predicate) where T : class, new()
+        public async Task<SingleItemCrudResponse<T>> ReadSingleItem<T>(string databaseName, Expression<Func<T, bool>> predicate) where T : class, new()
         {
+            var result = new SingleItemCrudResponse<T>();
+
+            var predicateBody = predicate.Body as BinaryExpression;
+
+            if (predicateBody != null )
+            {
+                //TODO:: implement
+            }
+
             throw new NotImplementedException();
+
+            return result;
         }
 
 
-        public Task<ItemResponse<T>> UpdateSingleItem<T, K>(string databaseName, string id, T item, K partitionKeyValue) where T : class, new()
+        public async Task<SimpleCrudResponse> UpdateSingleItem<T, K>(string databaseName, string id, T item, K partitionKeyValue) where T : class, new()
         {
-            throw new NotImplementedException();
+            BuildSqlCommandDelegate buildSqlCommandDelegate = command =>
+            {
+                command.CommandText = $"UPDATE {BuildCollectionName(typeof(T))} SET <TODO:: reflection here> WHERE Id = {_ITEM_ID_PARAMETER}";
+                command.Parameters.AddWithValue(_ITEM_ID_PARAMETER, id);
+            };
+
+            return await ExecuteNonQuery(buildSqlCommandDelegate);
         }
 
 
         public Task<ItemResponse<T>> DeleteSingleItem<T, K>(string databaseName, string id, K partitionKeyValue) where T : class, new()
         {
+            BuildSqlCommandDelegate buildSqlCommandDelegate = command =>
+            {
+                command.CommandText = $"DELETE FROM {BuildCollectionName(typeof(T))} WHERE Id = {_ITEM_ID_PARAMETER}";
+                command.Parameters.AddWithValue(_ITEM_ID_PARAMETER, id);
+            };
+
             throw new NotImplementedException();
         }
 
