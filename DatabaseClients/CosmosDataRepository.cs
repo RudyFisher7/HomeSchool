@@ -80,9 +80,9 @@
         }
 
 
-        public async Task<DataCrudResponse<T>> CreateSingleItem<T, K>(string databaseName, T item, K partitionKeyValue) where T : class
+        public async Task<SingleItemCrudResponse<T>> CreateSingleItem<T, K>(string databaseName, T item, K partitionKeyValue) where T : class, new()
         {
-            var result = new DataCrudResponse<T>();
+            var result = new SingleItemCrudResponse<T>();
 
             string collectionName = BuildCollectionName(typeof(T));
             var key = BuildPartitionKey(partitionKeyValue);
@@ -90,13 +90,13 @@
             var response = await _client.GetContainer(databaseName, collectionName).CreateItemAsync(item, key);
 
             result.Success = response.StatusCode == System.Net.HttpStatusCode.Created;
-            result.Data = response.Resource;
+            result.Item = response.Resource;
 
             return result;
         }
 
 
-        public async Task<T?> ReadSingleItem<T, K>(string databaseName, string itemId, K partitionKeyValue) where T : class
+        public async Task<T?> ReadSingleItem<T, K>(string databaseName, string itemId, K partitionKeyValue) where T : class, new()
         {
             T? result = null;
 
@@ -114,7 +114,7 @@
         }
 
 
-        public async Task<T?> ReadSingleItem<T>(string databaseName, Func<T, bool> predicate) where T : class
+        public async Task<T?> ReadSingleItem<T>(string databaseName, Func<T, bool> predicate) where T : class, new()
         {
             string collectionName = BuildCollectionName(typeof(T));
 
@@ -124,7 +124,7 @@
         }
 
 
-        public async Task<ItemResponse<T>> UpdateSingleItem<T, K>(string databaseName, string id, T item, K partitionKeyValue) where T : class
+        public async Task<ItemResponse<T>> UpdateSingleItem<T, K>(string databaseName, string id, T item, K partitionKeyValue) where T : class, new()
         {
             string collectionName = BuildCollectionName(typeof(T));
             var key = BuildPartitionKey(partitionKeyValue);
@@ -133,7 +133,7 @@
         }
 
 
-        public async Task<ItemResponse<T>> DeleteSingleItem<T, K>(string databaseName, string id, K partitionKeyValue) where T : class
+        public async Task<ItemResponse<T>> DeleteSingleItem<T, K>(string databaseName, string id, K partitionKeyValue) where T : class, new()
         {
             string collectionName = BuildCollectionName(typeof(T));
             var key = BuildPartitionKey(partitionKeyValue);
@@ -145,7 +145,7 @@
         }
 
 
-        public async Task<ItemResponse<T>> UpsertSingleItem<T, K>(string databaseName, T item, K partitionKeyValue) where T : class
+        public async Task<ItemResponse<T>> UpsertSingleItem<T, K>(string databaseName, T item, K partitionKeyValue) where T : class, new()
         {
             string collectionName = BuildCollectionName(typeof(T));
             var key = BuildPartitionKey(partitionKeyValue);

@@ -13,6 +13,7 @@ namespace DataRepositories
     //TODO:: create database if not exists implementation in this class so far only might support sql server
     public class SqlDataRepository : IDataRepository
     {
+        private delegate void BuildSqlCommandDelegate(SqlCommand command);
         private class BuildQueryResult
         {
             public bool Success { get; set; }
@@ -21,8 +22,16 @@ namespace DataRepositories
         }
 
 
+        private class ReadSingleItemResult<T> where T : class, new()
+        {
+            public T? Item { get; set; }
+            public string Message { get; set; } = string.Empty;
+        }
+
+
         private static readonly string _DATABASE_NAME_PARAMETER = "@DatabaseName";
         private static readonly string _COLLECTION_NAME_PARAMETER = "@CollectionName";
+        private static readonly string _ITEM_ID_PARAMETER = "@Id";
         private static readonly string _COLLECTION_NAME_FORMAT_STRING = "{0}s";
         private static readonly string _VALID_DATABASE_OR_TABLE_NAME_REGEX = @"^[a-zA-Z0-9]+";
         private static readonly string _FORBIDDEN_DDL_MESSAGE_FORMAT_STRING = $"'{0}' contians forbidden characters. Only letters and numbers allowed.";
@@ -52,10 +61,13 @@ namespace DataRepositories
 
             if (IsDdlNameAllowed(databaseName))
             {
-                var command = new SqlCommand($"IF NOT EXISTS(SELECT name FROM sys.databases WHERE name = {_DATABASE_NAME_PARAMETER}) BEGIN CREATE DATABASE {databaseName} END");
-                command.Parameters.AddWithValue(_DATABASE_NAME_PARAMETER, databaseName);
+                BuildSqlCommandDelegate buildSqlCommandDelegate = command =>
+                {
+                    command.CommandText = $"IF NOT EXISTS(SELECT name FROM sys.databases WHERE name = {_DATABASE_NAME_PARAMETER}) BEGIN CREATE DATABASE {databaseName} END";
+                    command.Parameters.AddWithValue(_DATABASE_NAME_PARAMETER, databaseName);
+                };
 
-                result = await ExecuteNonQuery(command);
+                result = await ExecuteNonQuery(buildSqlCommandDelegate);
             }
             else
             {
@@ -71,10 +83,13 @@ namespace DataRepositories
 
             if (IsDdlNameAllowed(databaseName))
             {
-                var command = new SqlCommand($"DROP DATABASE IF EXISTS {databaseName}");
-                command.Parameters.AddWithValue(_DATABASE_NAME_PARAMETER, databaseName);
+                BuildSqlCommandDelegate buildSqlCommandDelegate = command =>
+                {
+                    command.CommandText = $"DROP DATABASE IF EXISTS {databaseName}";
+                    command.Parameters.AddWithValue(_DATABASE_NAME_PARAMETER, databaseName);
+                };
 
-                result = await ExecuteNonQuery(command);
+                result = await ExecuteNonQuery(buildSqlCommandDelegate);
             }
             else
             {
@@ -95,11 +110,14 @@ namespace DataRepositories
 
                 if (queryResult.Success)
                 {
-                    var command = new SqlCommand(queryResult.Query);
-                    command.Parameters.AddWithValue(_DATABASE_NAME_PARAMETER, databaseName);
-                    command.Parameters.AddWithValue(_COLLECTION_NAME_PARAMETER, BuildCollectionName(modelType));
+                    BuildSqlCommandDelegate buildSqlCommandDelegate = command =>
+                    {
+                        command.CommandText = queryResult.Query;
+                        command.Parameters.AddWithValue(_DATABASE_NAME_PARAMETER, databaseName);
+                        command.Parameters.AddWithValue(_COLLECTION_NAME_PARAMETER, BuildCollectionName(modelType));
+                    };
 
-                    result = await ExecuteNonQuery(command);
+                    result = await ExecuteNonQuery(buildSqlCommandDelegate);
                 }
                 else
                 {
@@ -122,11 +140,14 @@ namespace DataRepositories
 
             if (IsDdlNameAllowed(databaseName))
             {
-                var command = new SqlCommand($"USE {databaseName}; DROP TABLE IF EXISTS dbo.{modelType.Name}s");
-                command.Parameters.AddWithValue(_DATABASE_NAME_PARAMETER, databaseName);
-                command.Parameters.AddWithValue(_COLLECTION_NAME_PARAMETER, BuildCollectionName(modelType));
+                BuildSqlCommandDelegate buildSqlCommandDelegate = command =>
+                {
+                    command.CommandText = $"USE {databaseName}; DROP TABLE IF EXISTS dbo.{modelType.Name}s";
+                    command.Parameters.AddWithValue(_DATABASE_NAME_PARAMETER, databaseName);
+                    command.Parameters.AddWithValue(_COLLECTION_NAME_PARAMETER, BuildCollectionName(modelType));
+                };
 
-                result = await ExecuteNonQuery(command);
+                result = await ExecuteNonQuery(buildSqlCommandDelegate);
             }
             else
             {
@@ -137,78 +158,148 @@ namespace DataRepositories
         }
 
 
-        public async Task<DataCrudResponse<T>> CreateSingleItem<T, K>(string databaseName, T item, K partitionKeyValue) where T : class
+        public async Task<SingleItemCrudResponse<T>> CreateSingleItem<T, K>(string databaseName, T item, K partitionKeyValue) where T : class, new()
         {
-            var result = new DataCrudResponse<T>();
+            var result = new SingleItemCrudResponse<T>();
 
             var queryResult = BuildCreateSingleItemQuery(databaseName, typeof(T));
 
             if (queryResult.Success)
             {
-                var command = new SqlCommand(queryResult.Query);
-                var populateResult = PopulateCreateSingleItemCommand(command, databaseName, item);
+                BuildSqlCommandDelegate buildSqlCommandDelegate = command =>
+                {
+                    command.CommandText = queryResult.Query;
+                    var populateResult = PopulateCreateSingleItemCommand(command, databaseName, item);
+                };
 
-                var simpleResponse = await ExecuteNonQuery(command);
+                var simpleResponse = await ExecuteNonQuery(buildSqlCommandDelegate);
 
                 result.Success = simpleResponse.Success;
                 result.Message = simpleResponse.Message;
                 result.DocumentsAffected = simpleResponse.DocumentsAffected;
-                result.Data = item;
+                result.Item = item;
             }
 
             return result;
         }
 
 
-        public Task<T?> ReadSingleItem<T, K>(string databaseName, string itemId, K partitionKeyValue) where T : class
+        public async Task<SingleItemCrudResponse<T>> ReadSingleItem<T, K>(string databaseName, string itemId, K partitionKeyValue) where T : class, new()
+        {
+            BuildSqlCommandDelegate buildSqlCommandDelegate = command =>
+            {
+                command.CommandText = $"SELECT * FROM {BuildCollectionName(typeof(T))} WHERE Id = {_ITEM_ID_PARAMETER}";
+                command.Parameters.AddWithValue(_ITEM_ID_PARAMETER, itemId);
+            };
+
+            return await ExecuteReadSingleItemQuery<T>(buildSqlCommandDelegate);
+        }
+
+
+        public Task<SingleItemCrudResponse<T>> ReadSingleItem<T>(string databaseName, Func<T, bool> predicate) where T : class, new()
         {
             throw new NotImplementedException();
         }
 
 
-        public Task<T?> ReadSingleItem<T>(string databaseName, Func<T, bool> predicate) where T : class
+        public Task<ItemResponse<T>> UpdateSingleItem<T, K>(string databaseName, string id, T item, K partitionKeyValue) where T : class, new()
         {
             throw new NotImplementedException();
         }
 
 
-        public Task<ItemResponse<T>> UpdateSingleItem<T, K>(string databaseName, string id, T item, K partitionKeyValue) where T : class
+        public Task<ItemResponse<T>> DeleteSingleItem<T, K>(string databaseName, string id, K partitionKeyValue) where T : class, new()
         {
             throw new NotImplementedException();
         }
 
 
-        public Task<ItemResponse<T>> DeleteSingleItem<T, K>(string databaseName, string id, K partitionKeyValue) where T : class
+        public Task<ItemResponse<T>> UpsertSingleItem<T, K>(string databaseName, T item, K partitionKeyValue) where T : class, new()
         {
             throw new NotImplementedException();
         }
 
 
-        public Task<ItemResponse<T>> UpsertSingleItem<T, K>(string databaseName, T item, K partitionKeyValue) where T : class
-        {
-            throw new NotImplementedException();
-        }
-
-
-        private async Task<SimpleCrudResponse> ExecuteNonQuery(SqlCommand command)
+        private async Task<SimpleCrudResponse> ExecuteNonQuery(BuildSqlCommandDelegate buildSqlCommandDelegate)
         {
             var result = new SimpleCrudResponse();
 
-            using (var connection = new SqlConnection(_connectionString))
+            try
             {
-                try
+                using (var connection = new SqlConnection(_connectionString))
+                using (var command = connection.CreateCommand())
                 {
-                    command.Connection = connection;
+                    buildSqlCommandDelegate(command);
                     await command.Connection.OpenAsync();
 
                     result.DocumentsAffected = await command.ExecuteNonQueryAsync();
                     result.Success = true;
                 }
-                catch (Exception exception)
+            }
+            catch (Exception exception)
+            {
+                result.Success = false;
+                result.Message = exception.Message;
+            }
+
+            return result;
+        }
+
+        private async Task<SingleItemCrudResponse<T>> ExecuteReadSingleItemQuery<T>(BuildSqlCommandDelegate buildSqlCommandDelegate) where T : class, new()
+        {
+            var result = new SingleItemCrudResponse<T>();
+
+            try
+            {
+                using (var connection = new SqlConnection(_connectionString))
+                using (var command = connection.CreateCommand())
                 {
-                    result.Success = false;
-                    result.Message = exception.Message;
+                    buildSqlCommandDelegate(command);
+                    await command.Connection.OpenAsync();
+
+                    using (var reader = await command.ExecuteReaderAsync())
+                    {
+                        var readResult = await TryReadSingleItem<T>(reader);
+
+                        result.Success = readResult.Item != null;
+                        result.Item = readResult.Item;
+                        result.Message = readResult.Message;
+                    }
                 }
+            }
+            catch (Exception exception)
+            {
+                result.Success = false;
+                result.Message = exception.Message;
+            }
+
+            return result;
+        }
+
+
+        private async Task<ReadSingleItemResult<T>> TryReadSingleItem<T>(SqlDataReader reader) where T : class, new()
+        {
+            var result = new ReadSingleItemResult<T>();
+
+            PropertyInfo[] properties = _propertyCache.GetOrAdd(typeof(T), t => t.GetProperties());
+
+            if (await reader.ReadAsync())
+            {
+                var item = new T();
+                foreach (var property in properties)
+                {
+                    if (!reader.IsDBNull(reader.GetOrdinal(property.Name)))
+                    {
+                        property.SetValue(reader.GetValue(reader.GetOrdinal(property.Name)), item);
+                    }
+                }
+
+                result.Item = item;
+            }
+
+            if (await reader.ReadAsync())
+            {
+                result.Message = "Query resulted in more than 1 item. Just read the first one.";
             }
 
             return result;
