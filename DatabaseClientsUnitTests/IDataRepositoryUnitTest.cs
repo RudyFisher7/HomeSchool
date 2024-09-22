@@ -7,7 +7,7 @@ using Utility.JsonSerialization;
 
 namespace IDataRepositoryUnitTests
 {
-    public class SqlDataRepositoryUnitTest : IDisposable
+    public class IDataRepositoryUnitTest : IDisposable
     {
         private class MyTestModel
         {
@@ -49,28 +49,36 @@ namespace IDataRepositoryUnitTests
         }
 
 
+        private readonly List<IDataRepository> _dataRepositories = new List<IDataRepository>();
         private readonly IConfigurationRoot _configuration;
-        private readonly IDataRepository _databaseClient;
         private const string _DATABASE_NAME = "TestDatabase";
         private const string _PARTITION_KEY_VALUE = "Test";
 
 
-        public SqlDataRepositoryUnitTest()
+        public IDataRepositoryUnitTest()
         {
             _configuration = new ConfigurationBuilder()
                 .AddJsonFile("appsettings.json")
                 .AddEnvironmentVariables()
                 .Build();
 
-            _databaseClient = new SqlDataRepository(_configuration.GetConnectionString("AzureSqlDBConnection") ?? throw new ArgumentNullException("AzureSqlDBConnection"));
-            var wasCreated = _databaseClient.CreateDatabaseIfNotExists(_DATABASE_NAME).Result;
-            var wasCreated2 = _databaseClient.CreateCollectionIfNotExists(_DATABASE_NAME, typeof(MyTestModel), nameof(MyTestModel.Name)).Result;
+            _dataRepositories.Add(new CosmosDataRepository(_configuration.GetConnectionString("AzureCosmosDBConnection") ?? throw new ArgumentNullException("AzureCosmosDBConnection")));
+            _dataRepositories.Add(new SqlDataRepository(_configuration.GetConnectionString("AzureSqlDBConnection") ?? throw new ArgumentNullException("AzureSqlDBConnection")));
+
+            foreach (var repository in _dataRepositories)
+            {
+                var wasCreated = repository.CreateDatabaseIfNotExists(_DATABASE_NAME).Result;
+                var wasCreated2 = repository.CreateCollectionIfNotExists(_DATABASE_NAME, typeof(MyTestModel), nameof(MyTestModel.Name)).Result;
+            }
         }
 
 
         public void Dispose()
         {
-            _databaseClient.DeleteDatabaseIfExists(_DATABASE_NAME);
+            foreach (var repository in _dataRepositories)
+            {
+                repository.DeleteDatabaseIfExists(_DATABASE_NAME);
+            }
         }
 
 
@@ -91,9 +99,13 @@ namespace IDataRepositoryUnitTests
                 Value = 1.034d,
             };
 
-            var insertResult = await _databaseClient.CreateSingleItem(_DATABASE_NAME, model, model.Name);
 
-            Assert.True(insertResult.Success);
+            foreach (var repository in _dataRepositories)
+            {
+                var insertResult = await repository.CreateSingleItem(_DATABASE_NAME, model, model.Name);
+
+                Assert.True(insertResult.Success);
+            }
         }
 
 
@@ -107,14 +119,17 @@ namespace IDataRepositoryUnitTests
                 Value = 1.034d,
             };
 
-            var insertResult = await _databaseClient.CreateSingleItem(_DATABASE_NAME, model, model.Name);
+            foreach (var repository in _dataRepositories)
+            {
+                var insertResult = await repository.CreateSingleItem(_DATABASE_NAME, model, model.Name);
 
-            Assert.True(insertResult.Success);
+                Assert.True(insertResult.Success);
 
-            var getResult = await _databaseClient.ReadSingleItem<MyTestModel, string>(_DATABASE_NAME, model.Id.ToString(), model.Name);
+                var getResult = await repository.ReadSingleItem<MyTestModel, string>(_DATABASE_NAME, model.Id.ToString(), model.Name);
 
-            Assert.NotNull(getResult);
-            Assert.Equal(model, getResult);
+                Assert.NotNull(getResult);
+                Assert.Equal(model, getResult.Item);
+            }
         }
 
 
@@ -128,16 +143,19 @@ namespace IDataRepositoryUnitTests
                 Value = 1.034d,
             };
 
-            var insertResult = await _databaseClient.CreateSingleItem(_DATABASE_NAME, model, model.Name);
+            foreach (var repository in _dataRepositories)
+            {
+                var insertResult = await repository.CreateSingleItem(_DATABASE_NAME, model, model.Name);
 
-            Assert.True(insertResult.Success);
+                Assert.True(insertResult.Success);
 
-            model.Value = 0.9d;
+                model.Value = 0.9d;
 
-            var updateResult = await _databaseClient.UpdateSingleItem(_DATABASE_NAME, model.Id.ToString(), model, model.Name);
+                var updateResult = await repository.UpdateSingleItem(_DATABASE_NAME, model.Id.ToString(), model, model.Name);
 
-            Assert.Equal(System.Net.HttpStatusCode.OK, updateResult.StatusCode);
-            Assert.Equal(model, updateResult.Resource);
+                Assert.True(updateResult.Success);
+                Assert.Equal(model, updateResult.Item);
+            }
         }
 
 
