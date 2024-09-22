@@ -226,7 +226,7 @@ namespace DataRepositories
         }
 
 
-        public Task<ItemResponse<T>> DeleteSingleItem<T, K>(string databaseName, string id, K partitionKeyValue) where T : class, new()
+        public async Task<SimpleCrudResponse> DeleteSingleItem<T, K>(string databaseName, string id, K partitionKeyValue) where T : class, new()
         {
             BuildSqlCommandDelegate buildSqlCommandDelegate = command =>
             {
@@ -234,13 +234,25 @@ namespace DataRepositories
                 command.Parameters.AddWithValue(_ITEM_ID_PARAMETER, id);
             };
 
-            throw new NotImplementedException();
+            var result = await ExecuteNonQuery(buildSqlCommandDelegate);
+
+            var response = new SimpleCrudResponse()
+            {
+                Success = result.Success,
+                Message = result.Message,
+            };
+
+            return response;
         }
 
 
-        public Task<ItemResponse<T>> UpsertSingleItem<T, K>(string databaseName, T item, K partitionKeyValue) where T : class, new()
+        public async Task<SingleItemCrudResponse<T>> UpsertSingleItem<T, K>(string databaseName, T item, K partitionKeyValue) where T : class, new()
         {
-            throw new NotImplementedException();
+            return new SingleItemCrudResponse<T>()
+            {
+                Success = false,
+                Message = "Method not implemented.",
+            };
         }
 
 
@@ -437,9 +449,9 @@ namespace DataRepositories
                     propertyName = property.Name;
 
                     var attribute = property.GetCustomAttribute<SqlTypeAttribute>();
-                    propertyType = attribute!.SqlTypeString;
+                    propertyType = attribute!.GetSqlTypeString();
 
-                    query.Append($"{propertyName} {propertyType} {attribute.SqlConstraintString}, ");
+                    query.Append($"{propertyName} {propertyType} {attribute.GetSqlConstraintString()}, ");
                 }
 
                 query.Length -= 2;
@@ -452,6 +464,54 @@ namespace DataRepositories
             {
                 result.Success = false;
                 result.Message = $"model type: {modelType.Name}, propertyName: {propertyName} - {exception.Message}";
+            }
+
+            return result;
+        }
+
+        private static BuildQueryResult BuildUpdateSingleItemQuery<T>(string databaseName, T model) where T : class, new()
+        {
+            var result = new BuildQueryResult();
+
+            PropertyInfo[] properties = _propertyCache.GetOrAdd(typeof(T), t => t.GetProperties());
+
+            var query = new StringBuilder();
+            query.Append($"USE {databaseName}; UPDATE dbo.{BuildCollectionName(typeof(T))} SET ");
+
+            var propertyName = string.Empty;
+
+            var primaryKeyPropertyName = string.Empty;
+
+            try
+            {
+                foreach (var property in properties)
+                {
+                    propertyName = property.Name;
+
+                    var attribute = property.GetCustomAttribute<SqlTypeAttribute>();
+
+                    if (attribute!.SqlConstraintEnum != SqlConstraintEnum.PRIMARY_KEY)
+                    {
+                        query.Append($"{propertyName} = @{propertyName}, ");
+                    }
+                    else
+                    {
+                        primaryKeyPropertyName = property.Name;
+                    }
+                }
+
+                query.Length -= 2;
+                query.Append(" ");
+
+                query.Append($"WHERE {primaryKeyPropertyName} = @{primaryKeyPropertyName}");
+
+                result.Success = true;
+                result.Query = query.ToString();
+            }
+            catch (Exception exception)
+            {
+                result.Success = false;
+                result.Message = $"model type: {typeof(T).Name}, propertyName: {propertyName} - {exception.Message}";
             }
 
             return result;

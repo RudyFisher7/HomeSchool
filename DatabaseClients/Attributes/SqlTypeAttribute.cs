@@ -14,24 +14,46 @@
         public const uint DEFAULT_MAX_VAR_DATA_LENGTH = 255u;
 
         public Type SqlType { get; }
-        public string SqlTypeString { get; } = string.Empty;
-        public string SqlConstraintString { get; } = string.Empty;
+        public SqlTypeEnum SqlTypeEnum { get; }
+        public SqlConstraintEnum SqlConstraintEnum { get; }
+
+
+        private uint _maxVarDataLength = DEFAULT_MAX_VAR_DATA_LENGTH;
 
 
         public SqlTypeAttribute(Type sqlType, SqlTypeEnum sqlTypeEnum, SqlConstraintEnum sqlConstraintEnum = SqlConstraintEnum.NONE, uint maxVarLength = DEFAULT_MAX_VAR_DATA_LENGTH)
         {
             SqlType = sqlType;
-            SqlTypeString = Enum.GetName(typeof(SqlTypeEnum), sqlTypeEnum)!;
+            SqlTypeEnum = sqlTypeEnum;
+            SqlConstraintEnum = sqlConstraintEnum;
 
-            if (SqlTypeString.Contains("VAR"))
+            _maxVarDataLength = maxVarLength;
+        }
+
+
+        public string GetSqlTypeString()
+        {
+            string result = Enum.GetName(typeof(SqlTypeEnum), SqlTypeEnum)!;
+
+            if (result.Contains("VAR"))
             {
-                SqlTypeString += $"({maxVarLength})";
+                result += $"({_maxVarDataLength})";
             }
 
-            if (sqlConstraintEnum != SqlConstraintEnum.NONE)
+            return result;
+        }
+
+
+        public string GetSqlConstraintString()
+        {
+            string result = string.Empty;
+
+            if (SqlConstraintEnum != SqlConstraintEnum.NONE)
             {
-                SqlConstraintString = Enum.GetName(typeof(SqlConstraintEnum), sqlConstraintEnum)!.Replace('_', ' ');
+                result = Enum.GetName(typeof(SqlConstraintEnum), SqlConstraintEnum)!.Replace('_', ' ');
             }
+
+            return result;
         }
     }
 }
