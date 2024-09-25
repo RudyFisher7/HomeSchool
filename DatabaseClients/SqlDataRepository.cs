@@ -199,8 +199,6 @@ namespace DataRepositories
 
         public async Task<SingleItemCrudResponse<T>> ReadSingleItem<T>(string databaseName, Expression<Func<T, bool>> predicate) where T : class, new()
         {
-            var result = new SingleItemCrudResponse<T>();
-
             var predicateBody = predicate.Body as BinaryExpression;
 
             if (predicateBody != null )
@@ -208,13 +206,15 @@ namespace DataRepositories
                 //TODO:: implement
             }
 
-            throw new NotImplementedException();
-
-            return result;
+            return new SingleItemCrudResponse<T>()
+            {
+                Success = false,
+                Message = "Method not yet implemented.",
+            };
         }
 
 
-        public async Task<SimpleCrudResponse> UpdateSingleItem<T, K>(string databaseName, string id, T item, K partitionKeyValue) where T : class, new()
+        public async Task<SingleItemCrudResponse<T>> UpdateSingleItem<T, K>(string databaseName, string id, T item, K partitionKeyValue) where T : class, new()
         {
             BuildSqlCommandDelegate buildSqlCommandDelegate = command =>
             {
@@ -222,7 +222,16 @@ namespace DataRepositories
                 command.Parameters.AddWithValue(_ITEM_ID_PARAMETER, id);
             };
 
-            return await ExecuteNonQuery(buildSqlCommandDelegate);
+            var executeResult = await ExecuteNonQuery(buildSqlCommandDelegate);
+
+            var response = new SingleItemCrudResponse<T>()
+            {
+                Success = executeResult.Success,
+                Message = executeResult.Message,
+                Item = item,
+            };
+
+            return response;
         }
 
 
@@ -234,15 +243,7 @@ namespace DataRepositories
                 command.Parameters.AddWithValue(_ITEM_ID_PARAMETER, id);
             };
 
-            var result = await ExecuteNonQuery(buildSqlCommandDelegate);
-
-            var response = new SimpleCrudResponse()
-            {
-                Success = result.Success,
-                Message = result.Message,
-            };
-
-            return response;
+            return await ExecuteNonQuery(buildSqlCommandDelegate);
         }
 
 
@@ -375,7 +376,7 @@ namespace DataRepositories
                     propertyName = property.Name;
 
                     var attribute = property.GetCustomAttribute<SqlTypeAttribute>();
-                    propertyType = attribute!.SqlTypeString;
+                    propertyType = attribute!.GetSqlTypeString();
 
                     query.Append($"{propertyName} {propertyType}, ");
                 }

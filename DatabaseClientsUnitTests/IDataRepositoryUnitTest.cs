@@ -148,6 +148,7 @@ namespace IDataRepositoryUnitTests
                 var insertResult = await repository.CreateSingleItem(_DATABASE_NAME, model, model.Name);
 
                 Assert.True(insertResult.Success);
+                Assert.NotNull(insertResult.Item);
 
                 model.Value = 0.9d;
 
@@ -169,14 +170,17 @@ namespace IDataRepositoryUnitTests
                 Value = 1.034d,
             };
 
-            var insertResult = await _databaseClient.CreateSingleItem(_DATABASE_NAME, model, model.Name);
+            foreach (var repository in _dataRepositories)
+            {
+                var insertResult = await repository.CreateSingleItem(_DATABASE_NAME, model, model.Name);
 
-            Assert.True(insertResult.Success);
+                Assert.True(insertResult.Success);
+                Assert.NotNull(insertResult.Item);
 
-            var deleteResult = await _databaseClient.DeleteSingleItem<MyTestModel, string>(_DATABASE_NAME, model.Id.ToString(), model.Name);
+                var deleteResult = await repository.DeleteSingleItem<MyTestModel, string>(_DATABASE_NAME, model.Id.ToString(), model.Name);
 
-            Assert.Equal(System.Net.HttpStatusCode.NoContent, deleteResult.StatusCode);
-            Assert.Null(deleteResult.Resource);
+                Assert.True(deleteResult.Success);
+            }
         }
 
 
@@ -190,9 +194,13 @@ namespace IDataRepositoryUnitTests
                 Value = 1.034d,
             };
 
-            var upsertResult = await _databaseClient.CreateSingleItem(_DATABASE_NAME, model, model.Name);
+            foreach (var repository in _dataRepositories)
+            {
+                var upsertResult = await repository.CreateSingleItem(_DATABASE_NAME, model, model.Name);
 
-            Assert.True(upsertResult.Success);
+                Assert.True(upsertResult.Success);
+                Assert.NotNull(upsertResult.Item);
+            }
         }
     }
 }
