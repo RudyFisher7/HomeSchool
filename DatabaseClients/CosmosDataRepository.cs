@@ -1,8 +1,11 @@
 ﻿namespace DataRepositories
 {
+    using Azure;
     using DataRepositories.CrudResponses;
     using Microsoft.Azure.Cosmos;
+    using Microsoft.Azure.Cosmos.Linq;
     using System.Linq.Expressions;
+    using System.Net;
     using System.Threading.Tasks;
 
 
@@ -23,32 +26,34 @@
 
         public async Task<SimpleCrudResponse> CreateDatabaseIfNotExists(string databaseName)
         {
-            var result = new SimpleCrudResponse();
+            var response = await _client.CreateDatabaseIfNotExistsAsync(databaseName);
 
-            DatabaseResponse databaseResponse = await _client.CreateDatabaseIfNotExistsAsync(databaseName);
+            var crudResponse = new SimpleCrudResponse()
+            {
+                Success = response.StatusCode == HttpStatusCode.Created,
+                Message = response.StatusCode.ToString(),
+            };
 
-            result.Success = databaseResponse.StatusCode == System.Net.HttpStatusCode.Created;
-
-            return result;
+            return crudResponse;
         }
 
 
         public async Task<SimpleCrudResponse> DeleteDatabaseIfExists(string databaseName)
         {
-            var result = new SimpleCrudResponse();
+            var response = await _client.GetDatabase(databaseName).DeleteAsync();
 
-            DatabaseResponse response = await _client.GetDatabase(databaseName).DeleteAsync();
+            var crudResponse = new SimpleCrudResponse()
+            {
+                Success = response.StatusCode == HttpStatusCode.OK,
+                Message = response.StatusCode.ToString(),
+            };
 
-            result.Success = response.StatusCode == System.Net.HttpStatusCode.OK;
-
-            return result;
+            return crudResponse;
         }
 
 
         public async Task<SimpleCrudResponse> CreateCollectionIfNotExists(string databaseName, Type modelType, string partitionKeyPropertyName)
         {
-            var result = new SimpleCrudResponse();
-
             string collectionName = BuildCollectionName(modelType);
 
             Database database = _client.GetDatabase(databaseName);
@@ -59,82 +64,108 @@
                 PartitionKeyPath = BuildPartitionKeyPath(partitionKeyPropertyName),
             };
 
-            ContainerResponse containerResponse = await database.CreateContainerIfNotExistsAsync(properties);
+            var response = await database.CreateContainerIfNotExistsAsync(properties);
 
-            result.Success = containerResponse.StatusCode == System.Net.HttpStatusCode.Created;
+            var crudResponse = new SimpleCrudResponse()
+            {
+                Success = response.StatusCode == HttpStatusCode.Created,
+                Message = response.StatusCode.ToString(),
+            };
 
-            return result;
+            return crudResponse;
         }
 
 
         public async Task<SimpleCrudResponse> DeleteCollectionIfExists(string databaseName, Type modelType)
         {
-            var result = new SimpleCrudResponse();
-
             string collectionName = BuildCollectionName(modelType);
 
             var response = await _client.GetContainer(databaseName, collectionName).DeleteContainerAsync();
 
-            result.Success = response.StatusCode == System.Net.HttpStatusCode.OK;
+            var crudResponse = new SimpleCrudResponse()
+            {
+                Success = response.StatusCode == HttpStatusCode.OK,
+                Message = response.StatusCode.ToString(),
+            };
 
-            return result;
+            return crudResponse;
         }
 
 
         public async Task<SingleItemCrudResponse<T>> CreateSingleItem<T, K>(string databaseName, T item, K partitionKeyValue) where T : class, new()
         {
-            var result = new SingleItemCrudResponse<T>();
-
             string collectionName = BuildCollectionName(typeof(T));
             var key = BuildPartitionKey(partitionKeyValue);
 
             var response = await _client.GetContainer(databaseName, collectionName).CreateItemAsync(item, key);
 
-            result.Success = response.StatusCode == System.Net.HttpStatusCode.Created;
-            result.Item = response.Resource;
+            var crudResponse = new SingleItemCrudResponse<T>()
+            {
+                Success = response.StatusCode == HttpStatusCode.Created,
+                Message = response.StatusCode.ToString(),
+                Item = response.Resource,
+            };
 
-            return result;
+            return crudResponse;
         }
 
 
-        public async Task<T?> ReadSingleItem<T, K>(string databaseName, string itemId, K partitionKeyValue) where T : class, new()
+        public async Task<SingleItemCrudResponse<T>> ReadSingleItem<T, K>(string databaseName, string itemId, K partitionKeyValue) where T : class, new()
         {
-            T? result = null;
-
             string collectionName = BuildCollectionName(typeof(T));
             var key = BuildPartitionKey(partitionKeyValue);
 
             var response = await _client.GetContainer(databaseName, collectionName).ReadItemAsync<T>(itemId, key);
 
-            if (response.StatusCode == System.Net.HttpStatusCode.OK)
+            var crudResponse = new SingleItemCrudResponse<T>()
             {
-                result = response.Resource;
-            }
+                Success = response.StatusCode == HttpStatusCode.OK,
+                Message = response.StatusCode.ToString(),
+                Item = response.Resource,
+            };
 
-            return result;
+            return crudResponse;
         }
 
 
-        public async Task<T?> ReadSingleItem<T>(string databaseName, Expression<Func<T, bool>> predicate) where T : class, new()
+        public async Task<SingleItemCrudResponse<T>> ReadSingleItem<T>(string databaseName, Expression<Func<T, bool>> predicate) where T : class, new()
         {
             string collectionName = BuildCollectionName(typeof(T));
 
-            var result = _client.GetContainer(databaseName, collectionName).GetItemLinqQueryable<T>();
+            var queryable = _client.GetContainer(databaseName, collectionName).GetItemLinqQueryable<T>();
 
-            return result.SingleOrDefault(predicate);
+            var item = queryable.FirstOrDefault(predicate);
+
+            var crudResponse = new SingleItemCrudResponse<T>()
+            {
+                Success = true,
+                Message = "Warning! Implemented with Linq query, so this will block. FIXME:: Implement using QueryDefinition and asynchronous operations.",
+                Item = item,
+            };
+
+            return crudResponse;
         }
 
 
-        public async Task<ItemResponse<T>> UpdateSingleItem<T, K>(string databaseName, string id, T item, K partitionKeyValue) where T : class, new()
+        public async Task<SingleItemCrudResponse<T>> UpdateSingleItem<T, K>(string databaseName, string id, T item, K partitionKeyValue) where T : class, new()
         {
             string collectionName = BuildCollectionName(typeof(T));
             var key = BuildPartitionKey(partitionKeyValue);
 
-            return await _client.GetContainer(databaseName, collectionName).ReplaceItemAsync(item, id, key);
+            var response = await _client.GetContainer(databaseName, collectionName).ReplaceItemAsync(item, id, key);
+
+            var crudResponse = new SingleItemCrudResponse<T>()
+            {
+                Success = response.StatusCode == HttpStatusCode.OK,
+                Message = response.StatusCode.ToString(),
+                Item = response.Resource,
+            };
+
+            return crudResponse;
         }
 
 
-        public async Task<ItemResponse<T>> DeleteSingleItem<T, K>(string databaseName, string id, K partitionKeyValue) where T : class, new()
+        public async Task<SimpleCrudResponse> DeleteSingleItem<T, K>(string databaseName, string id, K partitionKeyValue) where T : class, new()
         {
             string collectionName = BuildCollectionName(typeof(T));
             var key = BuildPartitionKey(partitionKeyValue);
@@ -142,16 +173,31 @@
             Container container = _client.GetContainer(databaseName, collectionName);
             var response = await container.DeleteItemAsync<T>(id, key);
 
-            return response;
+            var simpleResponse = new SimpleCrudResponse()
+            {
+                Success = response.StatusCode == HttpStatusCode.OK,
+                Message = response.StatusCode.ToString(),
+            };
+
+            return simpleResponse;
         }
 
 
-        public async Task<ItemResponse<T>> UpsertSingleItem<T, K>(string databaseName, T item, K partitionKeyValue) where T : class, new()
+        public async Task<SingleItemCrudResponse<T>> UpsertSingleItem<T, K>(string databaseName, T item, K partitionKeyValue) where T : class, new()
         {
             string collectionName = BuildCollectionName(typeof(T));
             var key = BuildPartitionKey(partitionKeyValue);
 
-            return await _client.GetContainer(databaseName, collectionName).UpsertItemAsync(item, key);
+            var response = await _client.GetContainer(databaseName, collectionName).UpsertItemAsync(item, key);
+
+            var crudResponse = new SingleItemCrudResponse<T>()
+            {
+                Success = response.StatusCode == HttpStatusCode.OK,
+                Message = response.StatusCode.ToString(),
+                Item = response.Resource,
+            };
+
+            return crudResponse;
         }
 
 
