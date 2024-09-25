@@ -39,6 +39,10 @@
             {
                 result += $"({_maxVarDataLength})";
             }
+            //else if (SqlTypeEnum == SqlTypeEnum.UNIQUEIDENTIFIER)
+            //{
+            //    result +=
+            //}
 
             return result;
         }

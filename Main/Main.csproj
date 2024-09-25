@@ -24,11 +24,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\DatabaseClients\DatabaseClients.csproj" />
+    <ProjectReference Include="..\DatabaseClients\DataRepositories.csproj" />
     <ProjectReference Include="..\Model\Model.csproj" />
   </ItemGroup>
 
   <ItemGroup>
+    <Folder Include="Areas\" />
     <Folder Include="SqlQueries\" />
   </ItemGroup>
 

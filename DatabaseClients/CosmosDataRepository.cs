@@ -175,7 +175,7 @@
 
             var simpleResponse = new SimpleCrudResponse()
             {
-                Success = response.StatusCode == HttpStatusCode.OK,
+                Success = response.StatusCode == HttpStatusCode.NoContent,
                 Message = response.StatusCode.ToString(),
             };
 

@@ -189,7 +189,7 @@ namespace DataRepositories
         {
             BuildSqlCommandDelegate buildSqlCommandDelegate = command =>
             {
-                command.CommandText = $"SELECT * FROM {BuildCollectionName(typeof(T))} WHERE Id = {_ITEM_ID_PARAMETER}";
+                command.CommandText = $"USE {databaseName}; SELECT * FROM {BuildCollectionName(typeof(T))} WHERE Id = {_ITEM_ID_PARAMETER}";
                 command.Parameters.AddWithValue(_ITEM_ID_PARAMETER, itemId);
             };
 
@@ -216,20 +216,29 @@ namespace DataRepositories
 
         public async Task<SingleItemCrudResponse<T>> UpdateSingleItem<T, K>(string databaseName, string id, T item, K partitionKeyValue) where T : class, new()
         {
-            BuildSqlCommandDelegate buildSqlCommandDelegate = command =>
-            {
-                command.CommandText = $"UPDATE {BuildCollectionName(typeof(T))} SET <TODO:: reflection here> WHERE Id = {_ITEM_ID_PARAMETER}";
-                command.Parameters.AddWithValue(_ITEM_ID_PARAMETER, id);
-            };
+            var response = new SingleItemCrudResponse<T>();
 
-            var executeResult = await ExecuteNonQuery(buildSqlCommandDelegate);
+            var queryResult = BuildUpdateSingleItemQuery(databaseName, item);
 
-            var response = new SingleItemCrudResponse<T>()
+            if (queryResult.Success)
             {
-                Success = executeResult.Success,
-                Message = executeResult.Message,
-                Item = item,
-            };
+                BuildSqlCommandDelegate buildSqlCommandDelegate = command =>
+                {
+                    command.CommandText = queryResult.Query;
+                    var populateResult = PopulateUpdateSingleItemCommand(command, databaseName, item);
+                };
+
+                var executeResult = await ExecuteNonQuery(buildSqlCommandDelegate);
+
+                response.Success = executeResult.Success;
+                response.Message = executeResult.Message;
+                response.Item = item;
+            }
+            else
+            {
+                response.Success = queryResult.Success;
+                response.Message = queryResult.Message;
+            }
 
             return response;
         }
@@ -239,7 +248,7 @@ namespace DataRepositories
         {
             BuildSqlCommandDelegate buildSqlCommandDelegate = command =>
             {
-                command.CommandText = $"DELETE FROM {BuildCollectionName(typeof(T))} WHERE Id = {_ITEM_ID_PARAMETER}";
+                command.CommandText = $"USE {databaseName}; DELETE FROM {BuildCollectionName(typeof(T))} WHERE Id = {_ITEM_ID_PARAMETER}";
                 command.Parameters.AddWithValue(_ITEM_ID_PARAMETER, id);
             };
 
@@ -327,7 +336,9 @@ namespace DataRepositories
                 {
                     if (!reader.IsDBNull(reader.GetOrdinal(property.Name)))
                     {
-                        property.SetValue(reader.GetValue(reader.GetOrdinal(property.Name)), item);
+                        var ordinal = reader.GetOrdinal(property.Name);
+                        var value = reader.GetValue(ordinal);
+                        property.SetValue(item, value);
                     }
                 }
 
@@ -367,7 +378,6 @@ namespace DataRepositories
             query.Append($"USE {databaseName}; INSERT INTO dbo.{BuildCollectionName(modelType)} (");
 
             var propertyName = string.Empty;
-            var propertyType = string.Empty;
 
             try
             {
@@ -376,9 +386,8 @@ namespace DataRepositories
                     propertyName = property.Name;
 
                     var attribute = property.GetCustomAttribute<SqlTypeAttribute>();
-                    propertyType = attribute!.GetSqlTypeString();
 
-                    query.Append($"{propertyName} {propertyType}, ");
+                    query.Append($"{propertyName}, ");
                 }
 
                 query.Length -= 2;
@@ -408,7 +417,7 @@ namespace DataRepositories
         }
 
 
-        private static bool PopulateCreateSingleItemCommand<T>(SqlCommand command, string databaseName, T model)
+        private static bool PopulateCreateSingleItemCommand<T>(SqlCommand command, string databaseName, T model) where T : class, new()
         {
             var result = false;
 
@@ -513,6 +522,28 @@ namespace DataRepositories
             {
                 result.Success = false;
                 result.Message = $"model type: {typeof(T).Name}, propertyName: {propertyName} - {exception.Message}";
+            }
+
+            return result;
+        }
+
+        private static bool PopulateUpdateSingleItemCommand<T>(SqlCommand command, string databaseName, T model) where T : class, new()
+        {
+            var result = false;
+
+            command.Parameters.AddWithValue(_DATABASE_NAME_PARAMETER, databaseName);
+            command.Parameters.AddWithValue(_COLLECTION_NAME_PARAMETER, BuildCollectionName(typeof(T)));
+
+            PropertyInfo[] properties = _propertyCache.GetOrAdd(typeof(T), t => t.GetProperties());
+
+            foreach (var property in properties)
+            {
+                var attribute = property.GetCustomAttribute<SqlTypeAttribute>();
+                var propertyValue = Activator.CreateInstance(attribute!.SqlType, property.GetValue(model));
+                if (propertyValue != null)
+                {
+                    command.Parameters.AddWithValue($"@{property.Name}", propertyValue);
+                }
             }
 
             return result;

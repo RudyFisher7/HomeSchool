@@ -1,17 +1,10 @@
 using Microsoft.EntityFrameworkCore;
-using Main.Data;
-using Main.Areas.Identity.Data;
-using DatabaseClients;
+using DataRepositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
 //FIXME:: use app configuration resource in Azure to reference key vault I think
-var identityConnectionString = builder.Configuration.GetConnectionString("IdentityContextConnection") ?? throw new InvalidOperationException("Connection string 'IdentityContextConnection' not found.");
 var cosmosConnectionString = builder.Configuration.GetConnectionString("AzureCosmosDBConnection") ?? throw new InvalidOperationException("Connection string 'AzureCosmosDBConnection' not found.");
-
-builder.Services.AddDbContext<IdentityContext>(options => options.UseSqlServer(identityConnectionString));
-
-builder.Services.AddDefaultIdentity<HomeSchoolUser>(options => options.SignIn.RequireConfirmedAccount = true).AddEntityFrameworkStores<IdentityContext>();
 
 // Add services to the container.
 builder.Services.AddRazorPages();
